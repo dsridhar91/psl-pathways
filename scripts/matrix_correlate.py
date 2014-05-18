@@ -14,5 +14,5 @@ if __name__ == "__main__":
 
 	for x, y in zip(nz[0], nz[1]):
 		if x != y:
-			print "%s\t%s\%s" % (sub_matrix.axes[0][x],sub_matrix.axes[0][y],co[x][y])
+			print "%s\t%s\t%s" % (sub_matrix.axes[0][x],sub_matrix.axes[0][y],co[x][y])
 
