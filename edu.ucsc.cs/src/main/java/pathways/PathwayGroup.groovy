@@ -73,13 +73,13 @@ m.add predicate:"drugProfileMatch", types: [ArgumentType.UniqueID, ArgumentType.
 /*
  * similarity scores given by String-DB
  */
-m.add predidcate:"neighborhood" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"coexpression" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"cooccurence" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"textmining" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"experimental" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"fusion" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predidcate:"database" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"neighborhood" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"coexpression" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"cooccurence" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"textmining" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"experimental" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"fusion" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+m.add predicate:"database" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
 /*
 //If Gene A matches the drug profile of Gene B and Gene A is in Pathway P, then Gene B should be in Pathway P
@@ -126,12 +126,14 @@ Partition truth_te = new Partition(5)
 /*
  * Partition for random variables
  */
-Partition rvs
+Partition rvs = new Partition(6)
+
 def dir = 'data'+java.io.File.separator;
 
 /*
  * Load observed data
  */
+println "Loading data..."
 
 inserter = data.getInserter(neighborhood, observed_tr);
 InserterUtils.loadDelimitedDataTruth(inserter, dir + "neighborhood.txt");
@@ -158,12 +160,15 @@ InserterUtils.loadDelimitedDataTruth(inserter, dir + "database.txt");
  * Load ground truth for training
  */
 
+inserter = data.getInserter(pathwayPairs, truth_tr);
+InserterUtils.loadDelimitedData(inserter, dir + "knownPathwayPairs.txt");
+
 /*
  * Load random variable data 
  */
 
 inserter = data.getInserter(pathwayPairs, rvs);
-InserterUtils.loadDelimitedDataTruth(inserter, dir + "pathwayPairs.txt");
+InserterUtils.loadDelimitedData(inserter, dir + "pathwayPairs.txt");
 
 Database distributionDB = data.getDatabase(predict_tr, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database], observed_tr);
 Database labelsDB = data.getDatabase(truth_tr, [pathwayPairs])
@@ -171,6 +176,8 @@ Database rvDB = data.getDatabase(rvs, [pathwayPairs])
 
 DatabasePopulator populator = new DatabasePopulator(distributionDB);
 populator.populateFromDB(rvDB, pathwayPairs);
+
+println "Learning Model weights ..."
 
 MaxLikelihoodMPE mpe = new MaxLikelihoodMPE(m, distributionDB, labelsDB, config)
 mpe.learn();
