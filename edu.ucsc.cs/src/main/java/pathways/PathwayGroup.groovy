@@ -48,13 +48,14 @@ import edu.umd.cs.psl.util.database.Queries
 /*
  * The first thing we need to do is initialize a ConfigBundle and a DataStore
  */
-
+dataSet = "pathways"
 ConfigManager cm = ConfigManager.getManager()
-ConfigBundle config = cm.getBundle("pathways")
+ConfigBundle cb = cm.getBundle(dataSet)
 
 /* Uses H2 as a DataStore and stores it in a temp. directory by default */
-String dbpath = "./test_db"
-DataStore data = new RDBMSDataStore(new H2DatabaseDriver(Type.Disk, dbpath, true), config)
+def defaultPath = System.getProperty("java.io.tmpdir")
+String dbPath = cb.getString("dbPath", defaultPath + File.separator + dataSet)
+DataStore data = new RDBMSDataStore(new H2DatabaseDriver(Type.Disk, dbPath, true), cb)
 
 PSLModel m = new PSLModel(this, data)
 
@@ -124,16 +125,16 @@ Partition predict_te = new Partition(4)
 Partition truth_te = new Partition(5)
 
 /*
- * Partition for random variables
+ * Partition for random variables in test
  */
 Partition rvs = new Partition(6)
 
-def dir = 'data'+java.io.File.separator;
+def dir = 'data'+java.io.File.separator + 'train' + java.io.File.separator;
 
 /*
- * Load observed data
+ * Load observed training data
  */
-println "Loading data..."
+println "Loading training data..."
 
 inserter = data.getInserter(neighborhood, observed_tr);
 InserterUtils.loadDelimitedDataTruth(inserter, dir + "neighborhood.txt");
@@ -163,30 +164,103 @@ InserterUtils.loadDelimitedDataTruth(inserter, dir + "database.txt");
 inserter = data.getInserter(pathwayPairs, truth_tr);
 InserterUtils.loadDelimitedData(inserter, dir + "knownPathwayPairs.txt");
 
+def testdir = 'data'+java.io.File.separator + 'test' + java.io.File.separator;
+
 /*
- * Load random variable data 
+ * Load observed test data
+ */
+println "Loading test data..."
+
+inserter = data.getInserter(neighborhood, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "neighborhood.txt");
+
+inserter = data.getInserter(coexpression, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "coexpression.txt");
+
+inserter = data.getInserter(cooccurence, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "cooccurence.txt");
+
+inserter = data.getInserter(textmining, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "textmining.txt");
+
+inserter = data.getInserter(experimental, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "experimental.txt");
+
+inserter = data.getInserter(fusion, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "fusion.txt");
+
+inserter = data.getInserter(database, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "database.txt");
+
+/*
+ * Load ground truth for testing
+ */
+
+inserter = data.getInserter(pathwayPairs, truth_te);
+InserterUtils.loadDelimitedData(inserter, testdir + "knownPathwayPairs.txt");
+
+/*
+ * Load random variables for testing
  */
 
 inserter = data.getInserter(pathwayPairs, rvs);
-InserterUtils.loadDelimitedData(inserter, dir + "pathwayPairs.txt");
+InserterUtils.loadDelimitedData(inserter, testdir + "pathwayPairs.txt");
 
-Database distributionDB = data.getDatabase(predict_tr, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database], observed_tr);
-Database labelsDB = data.getDatabase(truth_tr, [pathwayPairs])
-Database rvDB = data.getDatabase(rvs, [pathwayPairs])
+/*Set up for weight learning */
+
+Database distributionDB = data.getDatabase(predict_tr, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_tr);
+Database labelsDB = data.getDatabase(truth_tr, [pathwayPairs] as Set)
 
 DatabasePopulator populator = new DatabasePopulator(distributionDB);
-populator.populateFromDB(rvDB, pathwayPairs);
+populator.populateFromDB(labelsDB, pathwayPairs);
 
 println "Learning Model weights ..."
 
-MaxLikelihoodMPE mpe = new MaxLikelihoodMPE(m, distributionDB, labelsDB, config)
-mpe.learn();
-mpe.close();
+MaxLikelihoodMPE mle = new MaxLikelihoodMPE(m, distributionDB, labelsDB, cb)
+mle.learn();
+mle.close();
 
 println m;
 
+/*Set up inference*/
+Database testDB = data.getDatabase(predict_te, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_te);
+Database testTruthDB = data.getDatabase(truth_te, [pathwayPairs] as Set)
+Database rvDB = data.getDatabase(rvs, [pathwayPairs] as Set)
 
+/* This time populate testDB with all possible random variables*/
+populator = new DatabasePopulator(testDB);
+populator.populateFromDB(rvDB, pathwayPairs);
 
+/* Run inference */
+MPEInference mpe = new MPEInference(m, testDB, cb)
+FullInferenceResult result = mpe.mpeInference()
+System.out.println("Objective: " + result.getTotalWeightedIncompatibility())
 
+/*Evaluation - compute ranking loss */
+def comparator = new SimpleRankingComparator(testDB)
+comparator.setBaseline(testTruthDB)
 
+// Choosing what metrics to report
+def metrics = [RankingScore.AUPRC, RankingScore.NegAUPRC,  RankingScore.AreaROC]
+double [] score = new double[metrics.size()]
 
+try {
+    for (int i = 0; i < metrics.size(); i++) {
+            comparator.setRankingScore(metrics.get(i))
+            score[i] = comparator.compare(pathwayPairs)
+    }
+    //Storing the performance values of the current fold
+
+    System.out.println("\nArea under positive-class PR curve: " + score[0])
+    System.out.println("Area under negative-class PR curve: " + score[1])
+    System.out.println("Area under ROC curve: " + score[2])
+}
+catch (ArrayIndexOutOfBoundsException e) {
+    System.out.println("No evaluation data! Terminating!");
+}
+
+distributionDB.close()
+labelsDB.close()
+testDB.close()
+testTruthDB.close()
+rvDB.close()
