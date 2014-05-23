@@ -125,9 +125,10 @@ Partition predict_te = new Partition(4)
 Partition truth_te = new Partition(5)
 
 /*
- * Partition for random variables in test
+ * Partition for random variables
  */
-Partition rvs = new Partition(6)
+Partition rv_tr = new Partition(6)
+Partition rv_te = new Partition(7)
 
 def dir = 'data'+java.io.File.separator + 'train' + java.io.File.separator;
 
@@ -163,6 +164,13 @@ InserterUtils.loadDelimitedDataTruth(inserter, dir + "database.txt");
 
 inserter = data.getInserter(pathwayPairs, truth_tr);
 InserterUtils.loadDelimitedData(inserter, dir + "knownPathwayPairs.txt");
+
+/*
+ * Load RVs for training
+ */
+
+inserter = data.getInserter(pathwayPairs, rv_tr);
+InserterUtils.loadDelimitedData(inserter, dir + "pathwayPairs.txt");
 
 def testdir = 'data'+java.io.File.separator + 'test' + java.io.File.separator;
 
@@ -203,16 +211,17 @@ InserterUtils.loadDelimitedData(inserter, testdir + "knownPathwayPairs.txt");
  * Load random variables for testing
  */
 
-inserter = data.getInserter(pathwayPairs, rvs);
+inserter = data.getInserter(pathwayPairs, rv_te);
 InserterUtils.loadDelimitedData(inserter, testdir + "pathwayPairs.txt");
 
 /*Set up for weight learning */
 
 Database distributionDB = data.getDatabase(predict_tr, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_tr);
 Database labelsDB = data.getDatabase(truth_tr, [pathwayPairs] as Set)
+Database trainingRVDB = data.getDatabase(rv_tr, [pathwayPairs] as Set)
 
 DatabasePopulator populator = new DatabasePopulator(distributionDB);
-populator.populateFromDB(labelsDB, pathwayPairs);
+populator.populateFromDB(trainingRVDB, pathwayPairs);
 
 println "Learning Model weights ..."
 
@@ -225,7 +234,7 @@ println m;
 /*Set up inference*/
 Database testDB = data.getDatabase(predict_te, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_te);
 Database testTruthDB = data.getDatabase(truth_te, [pathwayPairs] as Set)
-Database rvDB = data.getDatabase(rvs, [pathwayPairs] as Set)
+Database rvDB = data.getDatabase(rv_te, [pathwayPairs] as Set)
 
 /* This time populate testDB with all possible random variables*/
 populator = new DatabasePopulator(testDB);
