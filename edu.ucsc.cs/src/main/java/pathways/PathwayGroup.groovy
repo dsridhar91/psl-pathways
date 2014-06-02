@@ -74,27 +74,23 @@ m.add predicate:"drugProfileMatch", types: [ArgumentType.UniqueID, ArgumentType.
 /*
  * similarity scores given by String-DB
  */
+m.add predicate:"drug" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID] 
 m.add predicate:"neighborhood" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate:"coexpression" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate:"cooccurence" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate:"textmining" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate:"experimental" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 m.add predicate:"fusion" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
-m.add predicate:"database" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
+//m.add predicate:"database" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
-/*
-//If Gene A matches the drug profile of Gene B and Gene A is in Pathway P, then Gene B should be in Pathway P
-m.add rule : ( drugProfileMatch(A,B) & pathwayMembership(A,P) & (A - B) ) >> pathwayMembership(B,P),  weight : 1
-
-//If Gene A does not match the drug profile of Gene B and Gene A is in Pathway P, then Gene B should not be in Pathway P
-m.add rule : ( ~drugProfileMatch(A,B) & pathwayMembership(A,P) & (A - B) ) >> ~pathwayMembership(B,P),  weight : 1
-*/
+/* use this predicate to constrain the triad rules to only ground out valid pathways that are in pathwayPairs files*/
+m.add predicate:"valPath" , types: [ArgumentType.UniqueID, ArgumentType.UniqueID]
 
 /*
  * Basic similarity rules for each type of similarity score
  */
 
-initialWeight = 1
+initialWeight = 5
 
 m.add rule: (neighborhood(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
 m.add rule: (coexpression(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
@@ -102,13 +98,79 @@ m.add rule: (cooccurence(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight :
 m.add rule: (textmining(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
 m.add rule: (experimental(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
 m.add rule: (fusion(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
-m.add rule: (database(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
+//m.add rule: (database(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (drug(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
 
+m.add rule: (~(neighborhood(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(coexpression(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(cooccurence(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(textmining(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(experimental(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(fusion(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+//m.add rule: (database(G1, G2) & (G1 - G2)) >> pathwayPairs(G1, G2) , weight : initialWeight
+m.add rule: (~(drug(G1, G2)) & (G1 - G2)) >> ~pathwayPairs(G1, G2) , weight : initialWeight
+
+
+
+/*Triad rules for collective inference */
+
+/*if gene a and b are linked, and c is similar to b, then a and c will be linked */
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & neighborhood(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & coexpression(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & cooccurence(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & textmining(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & experimental(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & fusion(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & database(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & drug(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+
+/*if gene a and b are not linked, then a will not be linked to any c such that c is similar to b*/
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & neighborhood(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & coexpression(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & cooccurence(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & textmining(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & experimental(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & fusion(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & database(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+m.add rule: (valPath(G1, G3) & valPath(G1, G2) & ~pathwayPairs(G1, G2) & drug(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+
+
+///*if gene a and b are linked, and c is dissimilar to b, then a will be not be linked to c */
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~neighborhood(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~coexpression(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~cooccurence(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~textmining(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~experimental(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~fusion(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+////m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & database(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~drug(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+
+/*if gene a and b are linked, and c is similar to b, then a and c will be linked */
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~neighborhood(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~coexpression(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~cooccurence(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~textmining(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~experimental(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~fusion(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+////m.add rule: (valPath(G1, G3) & pathwayPairs(G1, G2) & database(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~drug(G2, G3) & (G1 - G3) & (G2 - G3) & (G1 - G2)) >> pathwayPairs(G1, G3) , weight : initialWeight
+
+/*
+ * Transitivity
+ */
+ 
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & pathwayPairs(G1, G2) & pathwayPairs(G2, G3) & (G1 -  G2) & (G2 - G3) & (G1 - G3)) >> pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & pathwayPairs(G2, G3) & (G1 -  G2) & (G2 - G3) & (G1 - G3)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & pathwayPairs(G1, G2) & ~pathwayPairs(G2, G3) & (G1 -  G2) & (G2 - G3) & (G1 - G3)) >> ~pathwayPairs(G1, G3) , weight : initialWeight
+//m.add rule: (valPath(G1, G3) & valPath(G1, G2) & valPath(G2, G3) & ~pathwayPairs(G1, G2) & ~pathwayPairs(G2, G3) & (G1 -  G2) & (G2 - G3) & (G1 - G3)) >> pathwayPairs(G1, G3) , weight : initialWeight
 /*
  * Prior that two genes are probably not in the same pathway
  */
-m.add rule: (~pathwayPairs(G1, G2)) , weight : initialWeight
+m.add rule: (valPath(G1, G2)) >> ~(pathwayPairs(G1, G2)) , weight : initialWeight
 
+/* Symmetry constraint on pathway groupings. I.e. pathwayPairs(G1, G2) = pathwayPairs(G2, G1) */
+
+//m.add PredicateConstraint.Symmetric, on : pathwayPairs
 
 /*
  * Training partitions
@@ -129,8 +191,10 @@ Partition truth_te = new Partition(5)
  */
 Partition rv_tr = new Partition(6)
 Partition rv_te = new Partition(7)
+Partition rv_te2 = new Partition(8)
 
-def dir = 'data'+java.io.File.separator + 'train' + java.io.File.separator;
+//def dir = 'data'+java.io.File.separator + 'train' + java.io.File.separator;
+def dir = 'data'+java.io.File.separator + 'dev' + java.io.File.separator + 'train' + java.io.File.separator;
 
 /*
  * Load observed training data
@@ -139,6 +203,9 @@ println "Loading training data..."
 
 inserter = data.getInserter(neighborhood, observed_tr);
 InserterUtils.loadDelimitedDataTruth(inserter, dir + "neighborhood.txt");
+
+inserter = data.getInserter(drug, observed_tr);
+InserterUtils.loadDelimitedDataTruth(inserter, dir + "drug.txt");
 
 inserter = data.getInserter(coexpression, observed_tr);
 InserterUtils.loadDelimitedDataTruth(inserter, dir + "coexpression.txt");
@@ -155,15 +222,18 @@ InserterUtils.loadDelimitedDataTruth(inserter, dir + "experimental.txt");
 inserter = data.getInserter(fusion, observed_tr);
 InserterUtils.loadDelimitedDataTruth(inserter, dir + "fusion.txt");
 
-inserter = data.getInserter(database, observed_tr);
-InserterUtils.loadDelimitedDataTruth(inserter, dir + "database.txt");
+//inserter = data.getInserter(database, observed_tr);
+//InserterUtils.loadDelimitedDataTruth(inserter, dir + "database.txt");
+
+inserter = data.getInserter(valPath, observed_tr);
+InserterUtils.loadDelimitedData(inserter, dir + "pathwayPairs.txt");
 
 /*
  * Load ground truth for training
  */
 
 inserter = data.getInserter(pathwayPairs, truth_tr);
-InserterUtils.loadDelimitedData(inserter, dir + "knownPathwayPairs.txt");
+InserterUtils.loadDelimitedDataTruth(inserter, dir + "knownPathwayPairs.txt");
 
 /*
  * Load RVs for training
@@ -172,7 +242,7 @@ InserterUtils.loadDelimitedData(inserter, dir + "knownPathwayPairs.txt");
 inserter = data.getInserter(pathwayPairs, rv_tr);
 InserterUtils.loadDelimitedData(inserter, dir + "pathwayPairs.txt");
 
-def testdir = 'data'+java.io.File.separator + 'test' + java.io.File.separator;
+def testdir = 'data'+java.io.File.separator + 'dev' + java.io.File.separator + 'test' + java.io.File.separator;
 
 /*
  * Load observed test data
@@ -181,6 +251,9 @@ println "Loading test data..."
 
 inserter = data.getInserter(neighborhood, observed_te);
 InserterUtils.loadDelimitedDataTruth(inserter, testdir + "neighborhood.txt");
+
+inserter = data.getInserter(drug, observed_te);
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "drug.txt");
 
 inserter = data.getInserter(coexpression, observed_te);
 InserterUtils.loadDelimitedDataTruth(inserter, testdir + "coexpression.txt");
@@ -197,15 +270,19 @@ InserterUtils.loadDelimitedDataTruth(inserter, testdir + "experimental.txt");
 inserter = data.getInserter(fusion, observed_te);
 InserterUtils.loadDelimitedDataTruth(inserter, testdir + "fusion.txt");
 
-inserter = data.getInserter(database, observed_te);
-InserterUtils.loadDelimitedDataTruth(inserter, testdir + "database.txt");
+//inserter = data.getInserter(database, observed_te);
+//InserterUtils.loadDelimitedDataTruth(inserter, testdir + "database.txt");
+
+
+inserter = data.getInserter(valPath, observed_te);
+InserterUtils.loadDelimitedData(inserter, testdir + "pathwayPairs.txt");
 
 /*
  * Load ground truth for testing
  */
 
 inserter = data.getInserter(pathwayPairs, truth_te);
-InserterUtils.loadDelimitedData(inserter, testdir + "knownPathwayPairs.txt");
+InserterUtils.loadDelimitedDataTruth(inserter, testdir + "knownPathwayPairs.txt");
 
 /*
  * Load random variables for testing
@@ -214,9 +291,13 @@ InserterUtils.loadDelimitedData(inserter, testdir + "knownPathwayPairs.txt");
 inserter = data.getInserter(pathwayPairs, rv_te);
 InserterUtils.loadDelimitedData(inserter, testdir + "pathwayPairs.txt");
 
+//inserter = data.getInserter(pathwayPairs, rv_te2);
+//InserterUtils.loadDelimitedData(inserter, testdir + "unknown_pathwayPairs.txt");
+
+
 /*Set up for weight learning */
 
-Database distributionDB = data.getDatabase(predict_tr, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_tr);
+Database distributionDB = data.getDatabase(predict_tr, [valPath, drug, neighborhood, coexpression, cooccurence, textmining, experimental, fusion] as Set, observed_tr);
 Database labelsDB = data.getDatabase(truth_tr, [pathwayPairs] as Set)
 Database trainingRVDB = data.getDatabase(rv_tr, [pathwayPairs] as Set)
 
@@ -232,13 +313,15 @@ mle.close();
 println m;
 
 /*Set up inference*/
-Database testDB = data.getDatabase(predict_te, [neighborhood, coexpression, cooccurence, textmining, experimental, fusion, database] as Set, observed_te);
+Database testDB = data.getDatabase(predict_te, [valPath, drug, neighborhood, coexpression, cooccurence, textmining, experimental, fusion] as Set, observed_te);
 Database testTruthDB = data.getDatabase(truth_te, [pathwayPairs] as Set)
 Database rvDB = data.getDatabase(rv_te, [pathwayPairs] as Set)
+//Database rvDB2 = data.getDatabase(rv_te2, [pathwayPairs] as Set)
 
 /* This time populate testDB with all possible random variables*/
 populator = new DatabasePopulator(testDB);
 populator.populateFromDB(rvDB, pathwayPairs);
+//populator.populateFromDB(rvDB2, pathwayPairs);
 
 /* Run inference */
 MPEInference mpe = new MPEInference(m, testDB, cb)
@@ -267,6 +350,20 @@ try {
 catch (ArrayIndexOutOfBoundsException e) {
     System.out.println("No evaluation data! Terminating!");
 }
+
+/* Perform discrete evaluation */
+comparator = new DiscretePredictionComparator(testDB)
+comparator.setBaseline(testDB)
+comparator.setResultFilter(new MaxValueFilter(pathwayPairs, 1))
+comparator.setThreshold(0.5) // treat best value as true as long as it is nonzero
+
+Set<GroundAtom> groundings = Queries.getAllAtoms(testTruthDB, pathwayPairs)
+int totalTestExamples = groundings.size()
+DiscretePredictionStatistics stats = comparator.compare(pathwayPairs, totalTestExamples)
+System.out.println("Accuracy: " + stats.getAccuracy())
+System.out.println("F1: " + stats.getF1(DiscretePredictionStatistics.BinaryClass.POSITIVE))
+System.out.println("Precision: " + stats.getPrecision(DiscretePredictionStatistics.BinaryClass.POSITIVE))
+System.out.println("Recall: " + stats.getRecall(DiscretePredictionStatistics.BinaryClass.POSITIVE))
 
 distributionDB.close()
 labelsDB.close()
